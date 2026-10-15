@@ -10,6 +10,9 @@ All versions prior to 0.0.9 are untracked.
 
 ### Fixed
 
+* Reject malformed OSV response envelopes and report paginated responses as
+  incomplete instead of treating partial results as a complete audit.
+
 * Editable requirements skipped with `--skip-editable` no longer require a hash
   when auditing hashed requirements files
   ([#1024](https://github.com/pypa/pip-audit/issues/1024))

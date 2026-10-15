@@ -25,6 +25,30 @@ from pip_audit._service.interface import (
 logger = logging.getLogger(__name__)
 
 
+def _parse_response(response: requests.Response) -> list[dict[str, Any]]:
+    """Read a complete OSV query envelope; record schema validation is separate."""
+    try:
+        payload = response.json()
+    except ValueError:
+        raise ServiceError("OSV returned invalid JSON") from None
+
+    if not isinstance(payload, dict):
+        raise ServiceError("OSV response must be a JSON object")
+    token = payload.get("next_page_token", "")
+    if not isinstance(token, str):
+        raise ServiceError("OSV next_page_token must be a string")
+    if token:
+        # Do not report a partial page as a complete audit. Pagination support
+        # can replace this explicit failure in a separate reviewed change.
+        raise ServiceError("OSV response is paginated; audit results are incomplete")
+    if "vulns" not in payload and set(payload) - {"next_page_token"}:
+        raise ServiceError("OSV response is missing the vulnerabilities list")
+    vulns = payload.get("vulns", [])
+    if not isinstance(vulns, list) or any(not isinstance(v, dict) for v in vulns):
+        raise ServiceError("OSV vulnerabilities must be a list of objects")
+    return vulns
+
+
 class OsvService(VulnerabilityService):
     """
     An implementation of `VulnerabilityService` that uses OSV to provide Python
@@ -78,17 +102,12 @@ class OsvService(VulnerabilityService):
         except requests.HTTPError as http_error:
             raise ServiceError from http_error
 
-        # If the response is empty, that means that the package/version pair doesn't have any
-        # associated vulnerabilities
-        #
-        # In that case, return an empty list
+        # Only a complete, valid envelope can establish that no vulnerabilities exist.
         results: list[VulnerabilityResult] = []
-        response_json = response.json()
-        if not response_json:
-            return spec, results
+        response_vulns = _parse_response(response)
 
         vuln: dict[str, Any]
-        for vuln in response_json["vulns"]:
+        for vuln in response_vulns:
             # Sanity check: only the v1 schema is specified at the moment,
             # and the code below probably won't work with future incompatible
             # schemas without additional changes.
