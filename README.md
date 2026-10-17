@@ -1,3 +1,13 @@
+## About this fork
+
+This is a development fork of [pypa/pip-audit](https://github.com/pypa/pip-audit), the Python Packaging Authority tool for checking Python dependencies against known vulnerability advisories. It can audit installed environments and requirements files, produce human-readable or machine-readable reports, and emit CycloneDX software bills of materials. These capabilities support dependency review in software you develop or maintain.
+
+Use this repository to inspect the source and its [default-branch relationship to upstream](https://github.com/jdotc1/pip-audit/compare/pypa:main...jdotc1:main).
+
+Start with the [official installation and usage guide](https://github.com/pypa/pip-audit#installation), including its security model and dependency-resolution guidance. The full upstream README below retains command examples, integration options, advisory-source details, and project attribution.
+
+---
+
 pip-audit
 =========
 
