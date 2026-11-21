@@ -6,8 +6,8 @@ from __future__ import annotations
 
 from html import escape
 from textwrap import dedent
-from urllib.parse import quote
 from typing import cast
+from urllib.parse import quote
 
 from packaging.version import Version
 
@@ -31,7 +31,7 @@ def _md_cell(text: str) -> str:
 
 def _md_link(text: str, url: str) -> str:
     """Return a Markdown link without trusting the label or URL suffix."""
-    return f"[{_md_cell(text)}]({quote(url, safe=':/%#?&=')})"
+    return f"[{_md_cell(text)}]({quote(url, safe=':/')})"
 
 
 class MarkdownFormat(VulnerabilityFormat):
