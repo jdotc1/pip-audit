@@ -1,8 +1,10 @@
 import pytest
+from packaging.version import Version
 
 import pip_audit._format as format
+import pip_audit._service as service
 from pip_audit._format.interface import pypi_url, vuln_id_url
-from pip_audit._format.markdown import _md_link
+from pip_audit._format.markdown import _md_cell, _md_link
 
 
 # Shortcuts for building expected output with Markdown links
@@ -101,3 +103,33 @@ Name | Version | ID | Fix Versions | Applied Fix | Aliases
 {_P("foo")} | 1.0 | {_V("VULN-1")} | 1.0 | Successfully upgraded foo (1.0 => 1.8) | {_V("CVE-0000-00001")}
 {_P("bar")} | 0.1 | {_V("VULN-2")} |  | Failed to fix bar (0.1): skip-reason | {_V("CVE-0000-00002")}"""
     assert markdown_format.format(vuln_data, skipped_fix_data) == expected_markdown
+
+
+def test_markdown_untrusted_cells_cannot_inject_rows_or_html():
+    vuln = service.VulnerabilityResult(
+        id="GHSA-test](/outside)\n| forged",
+        description="Risk | [click](https://outside.example)\n<script>alert(1)</script>",
+        fix_versions=[],
+        aliases={"CVE-test](/outside)"},
+    )
+    dep = service.ResolvedDependency(name="example", version=Version("1.0"))
+    output = format.MarkdownFormat(True, True).format({dep: [vuln]}, [])
+    assert _md_cell("Risk | [click]\n<script>") == "Risk \\| \\[click\\] &lt;script&gt;"
+    assert "Risk \\| \\[click\\](https://outside.example) &lt;script&gt;alert(1)&lt;/script&gt;" in output
+    assert "[GHSA-test\\](/outside) \\| forged]" in output
+    assert "[CVE-test\\](/outside)]" in output
+    assert "\n| forged" not in output
+    assert "<script>" not in output
+
+
+def test_markdown_skipped_reason_cannot_add_table_rows():
+    skipped = service.SkippedDependency(name="example", skip_reason="bad | input\n| fake")
+    output = format.MarkdownFormat(False, False).format({skipped: []}, [])
+    assert "example | bad \\| input | fake" in output
+    assert "\n| fake" not in output
+
+
+def test_markdown_link_escapes_untrusted_destination_suffix():
+    assert _md_link("bad](/fake)", "https://osv.dev/vulnerability/bad](/fake)") == (
+        "[bad\\](/fake)](https://osv.dev/vulnerability/bad%5D%28/fake%29)"
+    )
