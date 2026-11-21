@@ -115,7 +115,10 @@ def test_markdown_untrusted_cells_cannot_inject_rows_or_html():
     dep = service.ResolvedDependency(name="example", version=Version("1.0"))
     output = format.MarkdownFormat(True, True).format({dep: [vuln]}, [])
     assert _md_cell("Risk | [click]\n<script>") == "Risk \\| \\[click\\] &lt;script&gt;"
-    assert "Risk \\| \\[click\\](https://outside.example) &lt;script&gt;alert(1)&lt;/script&gt;" in output
+    assert (
+        "Risk \\| \\[click\\](https://outside.example) &lt;script&gt;alert(1)&lt;/script&gt;"
+        in output
+    )
     assert "[GHSA-test\\](/outside) \\| forged]" in output
     assert "[CVE-test\\](/outside)]" in output
     assert "\n| forged" not in output
