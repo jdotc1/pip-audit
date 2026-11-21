@@ -4,7 +4,9 @@ Functionality for formatting vulnerability results as a Markdown table.
 
 from __future__ import annotations
 
+from html import escape
 from textwrap import dedent
+from urllib.parse import quote
 from typing import cast
 
 from packaging.version import Version
@@ -15,9 +17,21 @@ import pip_audit._service as service
 from .interface import VulnerabilityFormat, pypi_url, vuln_id_url
 
 
+def _md_cell(text: str) -> str:
+    """Render untrusted text inside one Markdown table cell.
+
+    Entity-encode HTML, escape Markdown delimiters and replace line breaks
+    so vulnerability metadata cannot create links, HTML, or extra rows.
+    """
+    text = escape(text, quote=False)
+    for character in ("\\", "|", "[", "]"):
+        text = text.replace(character, "\\" + character)
+    return text.replace("\r\n", " ").replace("\r", " ").replace("\n", " ")
+
+
 def _md_link(text: str, url: str) -> str:
-    """Return a Markdown link."""
-    return f"[{text}]({url})"
+    """Return a Markdown link without trusting the label or URL suffix."""
+    return f"[{_md_cell(text)}]({quote(url, safe=':/%#?&=')})"
 
 
 class MarkdownFormat(VulnerabilityFormat):
@@ -116,12 +130,12 @@ class MarkdownFormat(VulnerabilityFormat):
             f"{self._format_fix_versions(vuln.fix_versions)}"
         )
         if applied_fix is not None:
-            vuln_text += f" | {self._format_applied_fix(applied_fix)}"
+            vuln_text += f" | {_md_cell(self._format_applied_fix(applied_fix))}"
         if self.output_aliases:
             linked_aliases = ", ".join(_md_link(a, vuln_id_url(a)) for a in vuln.aliases)
             vuln_text += f" | {linked_aliases}"
         if self.output_desc:
-            vuln_text += f" | {vuln.description}"
+            vuln_text += f" | {_md_cell(vuln.description)}"
         return vuln_text
 
     def _format_fix_versions(self, fix_versions: list[Version]) -> str:
@@ -163,4 +177,4 @@ class MarkdownFormat(VulnerabilityFormat):
         ) + "\n".join(skipped_dep_rows)
 
     def _format_skipped_dep(self, dep: service.SkippedDependency) -> str:
-        return f"{dep.name} | {dep.skip_reason}"
+        return f"{_md_cell(dep.name)} | {_md_cell(dep.skip_reason)}"
